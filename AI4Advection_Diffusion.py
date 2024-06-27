@@ -7,8 +7,8 @@ is_gpu = torch.cuda.is_available()
 device = torch.device("cuda" if is_gpu else "cpu")
 
 
-class AI4Advection(nn.Module):
-    def __init__(self,u,dx,dy,dt,cx,cy,nx,ny):
+class AI4Advection_Difussion(nn.Module):
+    def __init__(self,u,dx,dy,dt,cx,cy,nx,ny,Dx, Dy):
         super(AI4Advection, self).__init__()
         self.dx = dx
         self.dy = dy
@@ -16,15 +16,17 @@ class AI4Advection(nn.Module):
         self.cx = cx
         self.cy = cy
         self.u = u
+        self.Dx = Dx
+        self.Dy = Dy
         self.nx = nx
         self.ny = ny
         self.nlevel = int(math.log(min(nx, ny), 2)) + 1 
         A = torch.zeros((1,1,3,3))
-        A[:,:,0,1] = self.dt/self.dy/2*self.cy
-        A[:,:,2,1] = -self.dt/self.dy/2*self.cy
-        A[:,:,1,0] = self.dt/self.dx/2*self.cx
-        A[:,:,1,1] = 1
-        A[:,:,1,2] = -self.dt/self.dx/2*self.cx
+        A[:,:,0,1] = (Dy/dy**2 + cy/(2*dy))*dt
+        A[:,:,2,1] = (Dy/dy**2 - cy/(2*dy))*dt
+        A[:,:,1,0] = (Dx/dx**2 + cx/(2*dx))*dt
+        A[:,:,1,1] = 1-(2*Dy/dy**2 + 2*Dx/dx**2)*dt
+        A[:,:,1,2] = (Dx/dx**2 - cx/(2*dx))*dt
         A_res = torch.zeros((1,1,2,2))
         A_res[0,0,:,:] = 0.25
         self.diag = np.array(A)[0,0,1,1]
@@ -101,6 +103,7 @@ class AI4Diffusion(nn.Module):
         u_pdd[0,0,1:-1,-1] = u[0,0,:,-1]
         u_pdd[0,0,1:-1,0] = u[0,0,:,0]
         return u_pdd
+    
     def F_cycle(self, iteration):
         """
         b is Right-end item (source item) of advection equation
